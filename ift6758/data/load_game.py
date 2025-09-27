@@ -24,12 +24,6 @@ def event_id_min_max(plays):
   ids = [p.get('eventId') for p in plays if isinstance(p.get("eventId"), int)]
   return (1, len(ids)-1)
 
-def coordinates_for_play_with_event_id(plays, id):
-  event = plays[id]
-  d = event.get("details", {})
-  return (d.get("xCoord"), d.get("yCoord"))
-
-
 def plot_ring(ring_path, play):
 
   x = float(play["details"]["xCoord"])
