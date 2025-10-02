@@ -18,7 +18,8 @@ def load_all_games_events(base_path="./dataStore", years=range(2016, 2024)):
                     data = read_json(file_path)
                     plays = data.get("plays", [])
                     roster_spots = data.get("rosterSpots", [])
-                    all_games[game_id] = {"plays" : plays, "rosterSpots": roster_spots}
+                    game_time = data.get("startTimeUTC")
+                    all_games[game_id] = {"gameTime": game_time, "plays" : plays, "rosterSpots": roster_spots}
     return all_games
 
 def events_to_dataframe(all_games_events):
@@ -27,8 +28,8 @@ def events_to_dataframe(all_games_events):
     for game_id, game_data in all_games_events.items():
         plays = game_data.get("plays", [])
         players = game_data.get("rosterSpots", [])
+        game_time = game_data.get("gameTime")
         for ev in plays:
-            game_time = ev.get("startTimeUTC")
             ev_type = ev.get("typeDescKey")
             if ev_type not in ["shot-on-goal", "goal"]:
                 continue
@@ -40,7 +41,7 @@ def events_to_dataframe(all_games_events):
 
             record = {
                 "game_id": game_id,
-                "game_time": game_time,
+                "game_time": pd.to_datetime(game_time),
                 "period": ev.get("periodDescriptor", {}).get("number"),
                 "period_time": ev.get("timeInPeriod"),
                 "event_type": "goal" if ev_type == "goal" else "shot",
