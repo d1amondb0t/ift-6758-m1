@@ -30,7 +30,6 @@ def league_stats():
     if (os.path.exists("league_srperh.csv")):
         df_aggregate_counts_league = pd.read_csv("league_sr_per_h.csv")
         return df_aggregate_counts_league
-    
 
     df = pd.read_csv('all_shots_goals.csv')
     df_league_stats =  df[['game_id',  'season', 'team_name', 'coordinates_x', 'coordinates_y']]
