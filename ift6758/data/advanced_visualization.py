@@ -2,13 +2,12 @@ import pandas as pd
 import numpy as np 
 import seaborn as sns
 import matplotlib.pyplot as plt
-import os
 import scipy.stats as sci
-from scipy.ndimage import gaussian_filter
-from PIL import Image
 import plotly.graph_objects as go
 import ipywidgets as widgets
+from PIL import Image
 from IPython.display import display, clear_output
+from scipy.ndimage import gaussian_filter
 
 rink = "../../figures/nhl_rink.png"
 x_bins = np.linspace(0, 100, 10)
