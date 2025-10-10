@@ -36,7 +36,6 @@ def league_stats(season):
     
     return df_aggregate_counts_league
 
-
 def team_data(season, team_name):
     df_aggregate_league = league_stats(season)
     
@@ -100,11 +99,9 @@ def plot_data(df):
     plt.xlim(X_MIN, X_MAX); plt.ylim(Y_MIN, Y_MAX)
     plt.show()
 
-
 def plot_team_excess_shot_map(season, team_name):
     df_team = team_data(season, team_name)
     plot_data(df_team)
-    
 
 def interactive_team_shot_map():
     
