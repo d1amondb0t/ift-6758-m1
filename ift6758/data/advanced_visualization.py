@@ -1,15 +1,10 @@
 import pandas as pd 
 import numpy as np 
-import seaborn as sns
-import matplotlib.pyplot as plt
-import scipy.stats as sci
 import plotly.graph_objects as go
-import ipywidgets as widgets
 from PIL import Image
-from IPython.display import display, clear_output
 from scipy.ndimage import gaussian_filter, zoom
+import tqdm
 import os
-import plotly.express as px
 
 
 rink = "../../figures/nhl_rink.png"
@@ -17,12 +12,24 @@ rink_half = "../../figures/nhl_rink_half.png"
 x_bins = np.linspace(0, 100, 10)
 y_bins = np.linspace(-42.5, 42.5,10)
 HEATMAP_OPACITY = 0.8
-
-
 ### Helper Functions
-def _smooth_gaussian_interpolation_(df, sigma_ft=6.0, upscale=10):
-    
 
+def _smooth_gaussian_interpolation_(df, sigma_ft=6.0, upscale=10):
+    """
+    Apply Gaussian smoothing and optional upscaling to a 2D excess shot grid.
+    Inputs:
+        df (pd.DataFrame): 2D sr/h matrix 
+        sigma_ft (float, optional): Gaussian smoothing in feet.
+            Defaults to 6.0.
+        upscale (int, optional): Factor to upsample the smoothed grid for
+            visualization. Defaults to 10.
+    Outputs:
+        tuple:
+            Z (ndarray): Smoothed 2D sr/h grid.
+            x (ndarray): Vertical axis coordinates in feet.
+            y (ndarray): Horizontal axis coordinates in feet.
+            axes_extent (tuple): (X_MIN, X_MAX, Y_MIN, Y_MAX) rink extents.
+    """
     X_MIN, X_MAX = -42.5, 42.5
     Y_MIN, Y_MAX = 0.0, 100.0
 
@@ -45,6 +52,19 @@ def _smooth_gaussian_interpolation_(df, sigma_ft=6.0, upscale=10):
     return Z, x, y, (X_MIN, X_MAX, Y_MIN, Y_MAX)
 
 def _rink_trace_(img_rgba, X_MIN, X_MAX, Y_MIN, Y_MAX, H, W):
+    """
+    Create a Plotly image trace for a hockey rink background.
+    Inputs:
+        img_rgba (np.ndarray): Rink image .
+        X_MIN (float): Minimum horizontal rink coordinate in feet.
+        X_MAX (float): Maximum horizontal rink coordinate in feet.
+        Y_MIN (float): Minimum vertical rink coordinate in feet.
+        Y_MAX (float): Maximum vertical rink coordinate in feet.
+        H (int): Image height 
+        W (int): Image width.
+    Outputs:
+        go.Image: Plotly image trace aligned with rink coordinates.
+    """
     return go.Image(
         z=img_rgba,
         x0=X_MIN,
@@ -57,64 +77,22 @@ def _rink_trace_(img_rgba, X_MIN, X_MAX, Y_MIN, Y_MAX, H, W):
 )
 ### End Helper Functions
 
-def league_stats(season):
-    df = pd.read_csv('all_shots_goals.csv')
-    df_league_stats = df[['game_id', 'season', 'team_name', 'coordinates_x', 'coordinates_y']]
-    df_league_stats = df_league_stats.dropna()
-    df_league_stats = df_league_stats[df_league_stats['season'] == season]
-    
-    df_league_stats['coordinates_x'] = df_league_stats['coordinates_x'].apply(abs)
-    
-    df_league_stats['coordinates_x_bins'] = pd.cut(df_league_stats['coordinates_x'], bins=x_bins, ordered=True)
-    df_league_stats['coordinates_y_bins'] = pd.cut(df_league_stats['coordinates_y'], bins=y_bins, ordered=True)    
-    
-    df_aggregate_counts_league  = df_league_stats.groupby(
-        ['coordinates_x_bins', 'coordinates_y_bins'],
-        observed=False).size().reset_index(name="counts")
-    
-    #dividing by 2 because there are two teams in a game of hockey, and we need to acount for that 
-    games_total = len ( df_league_stats['game_id'].unique())
-    df_aggregate_counts_league['sr/h'] = df_aggregate_counts_league['counts'] / (2 * games_total)  
-    
-    #df_aggregate_counts_league.to_csv("league_sr_per_h.csv")
-    
-    return df_aggregate_counts_league
 
-def team_data(season, team_name):
-    df_aggregate_league = league_stats(season)
-    
-    df = pd.read_csv('all_shots_goals.csv')
-    team_data = df[(df['team_name'] == team_name) ]
-    team_data = team_data[team_data['season'] == season]
-    
-    team_data['coordinates_x'] = team_data['coordinates_x'].apply(abs)
-    team_data['coordinates_x_bins'] = pd.cut(team_data['coordinates_x'], bins=x_bins  )
-    team_data['coordinates_y_bins'] = pd.cut(team_data['coordinates_y'], bins=y_bins)
-
-    df_aggregate_counts_team  = team_data.groupby(
-        ['coordinates_x_bins', 'coordinates_y_bins'],
-        observed=False).size().reset_index(name="counts")
-    
-    #Every game is an hour so we divide by number of gammes 
-    df_aggregate_counts_team['sr/h'] = df_aggregate_counts_team['counts'] / (len(team_data['game_id'].unique()))
-    
-    merged_df = pd.merge(df_aggregate_counts_team, df_aggregate_league,
-                         on=["coordinates_x_bins", "coordinates_y_bins"])
-    
-    merged_df["excess_shot"] =((merged_df["sr/h_x"] - merged_df["sr/h_y"])  )   
-    
-    final_df  = merged_df[['coordinates_x_bins', 'coordinates_y_bins', 'excess_shot']]
-    
-    final_df = final_df.pivot(index ='coordinates_x_bins',
-                                                 columns='coordinates_y_bins',
-                                                 values= 'excess_shot')
-    
-    return final_df
 
 def build_offensive_zone_figure_for_season(
     season: int,
     default_team: str = "Sharks",
     rink_image_path: str = rink_half):
+
+    """
+    Builds an interactive offensive zone heatmap figure for a given NHL season.
+    Inputs:
+        season (int): NHL season year (e.g., 20212022).
+        default_team(str, optional): Team selected by default. Defaults to "Sharks".
+        rink_image_path(str, optional): Path to half-rink background image.
+    Returns:
+        go.Figure: Interactive Plotly figure with team heatmaps and rink background.
+    """
     
     df_all = pd.read_csv("all_shots_goals.csv")
     teams = sorted(df_all.loc[df_all["season"] == season, "team_name"].dropna().unique())
@@ -242,6 +220,23 @@ def export_offensive_zone_figures(
     default_team: str = "Sharks",
     rink_image_path: str = rink_half,
     include_plotlyjs: str = "cdn"):
+
+    """
+    Export offensive zone heatmap figures for one or more NHL seasons.
+    Inputs:
+        seasons (list[int]): List of season years to process. If None,
+            all available seasons in the data are used. Defaults to None.
+        out_dir (str): Output directory for saving figures.
+            Defaults to "plot_figures".
+        default_team (str): Team selected by default in each figure.
+            Defaults to "Sharks".
+        rink_image_path (str): Path to half-rink background image.
+            Defaults to `rink_half`.
+        include_plotlyjs (str): How to include Plotly.js in HTML export
+            ("cdn", "directory", or "inline"). Defaults to "cdn".
+    Returns:
+        None
+    """
     
     if seasons is None:
         seasons = [20162017, 20172018, 20182019, 20192020, 20202021, 20212022, 20222023]
@@ -249,7 +244,7 @@ def export_offensive_zone_figures(
     os.makedirs(out_dir, exist_ok=True)
 
     saved = []
-    for s in seasons:
+    for s in (seasons):
         fig = build_offensive_zone_figure_for_season(
             season=s,
             default_team=default_team,
@@ -261,132 +256,73 @@ def export_offensive_zone_figures(
 
     return saved
 
-### Everything from here on can be removed
 
-def plot_data(df):
-    X_MIN, X_MAX = -42.5, 42.5
-    Y_MIN, Y_MAX = 0, 100
-    rink_full = Image.open(rink).convert("RGBA")
+def league_stats(season):
+    """
+    Compute league-wide shot statistics for a given NHL season.
+    Inputs:
+        season (int): NHL season year (e.g., 2021).
+    Ouputs:
+        pd.DataFrame: Aggregated league-level shot statistics.
+    """
+    df = pd.read_csv('all_shots_goals.csv')
+    df_league_stats = df[['game_id', 'season', 'team_name', 'coordinates_x', 'coordinates_y']]
+    df_league_stats = df_league_stats.dropna()
+    df_league_stats = df_league_stats[df_league_stats['season'] == season]
     
-    W, H = rink_full.size
-    rink_half = rink_full.crop((W//2, 0, W, H))
-    rink_half_rot = rink_half.transpose(Image.ROTATE_90)
-
-    plt.imshow(rink_half_rot, extent=[X_MIN, X_MAX, Y_MIN, Y_MAX], alpha=1)
-
-    Z_raw = df.values.astype(float)
-    Z_smooth = gaussian_filter(Z_raw, sigma=0.8, mode="nearest")
-
-    raw_max = np.nanmax(np.abs(Z_raw))
-    smooth_max = max(np.nanmax(np.abs(Z_smooth)), 1e-12)
-    Z_smooth *= (raw_max / smooth_max)
-
-    lo, hi = np.percentile(Z_smooth, [2, 98])
-    max_abs = max(abs(lo), abs(hi))
-    vmin, vmax = -max_abs, +max_abs
-
-    plt.imshow(
-        Z_smooth, cmap="bwr", interpolation="gaussian", alpha=0.7,
-        extent=[X_MIN, X_MAX, Y_MIN, Y_MAX], vmin=vmin, vmax=vmax
-    )
-
-    plt.colorbar(label="Excess shots/hour")
-    plt.gca().set_aspect("equal", adjustable="box")
-    plt.xlim(X_MIN, X_MAX); plt.ylim(Y_MIN, Y_MAX)
-    plt.show()
+    df_league_stats['coordinates_x'] = df_league_stats['coordinates_x'].apply(abs)
     
-def plot_data_plotly(df, rink_image_path=rink_half, opacity=0.72):
+    df_league_stats['coordinates_x_bins'] = pd.cut(df_league_stats['coordinates_x'], bins=x_bins, ordered=True)
+    df_league_stats['coordinates_y_bins'] = pd.cut(df_league_stats['coordinates_y'], bins=y_bins, ordered=True)    
+    
+    df_aggregate_counts_league  = df_league_stats.groupby(
+        ['coordinates_x_bins', 'coordinates_y_bins'],
+        observed=False).size().reset_index(name="counts")
+    
+    #dividing by 2 because there are two teams in a game of hockey, and we need to acount for that 
+    games_total = len ( df_league_stats['game_id'].unique())
+    df_aggregate_counts_league['sr/h'] = df_aggregate_counts_league['counts'] / (2 * games_total)  
+    
+    #df_aggregate_counts_league.to_csv("league_sr_per_h.csv")
+    
+    return df_aggregate_counts_league
 
-    Z, x, y, axes_limits = _smooth_gaussian_interpolation_(df)
-    X_MIN, X_MAX, Y_MIN, Y_MAX = axes_limits
+def team_data(season, team_name):
+    """
+    Retrieve shot data for a specific team in a given NHL season.
+    Inputs:
+        season (int): NHL season year (e.g., 2021).
+        team_name (str): Team name to filter.
 
-    #symmetric color scale
-    finite = Z[np.isfinite(Z)]   
-    lo, hi = np.percentile(finite, [5, 95])
-    vmax = max(abs(lo), abs(hi))
-    vmin = -vmax if vmax > 0 else None
- 
-    # Heatmap figure (x=Y, y=X)
-    fig = px.imshow(
-        Z, x=y, y=x,
-        origin="lower",
-        color_continuous_scale="RdBu_r",
-        zmin=vmin,
-        zmax=vmax,
-         labels={"x": "Distance in centre of rink (ft)", "y": " Distance from goal line (ft)", "color": "Excess shots/hour"},
-        title="Excess shots/hour",
-    )
-
-    # Rink background
-    img = Image.open(rink_image_path).convert("RGBA")
-    fig.add_layout_image(dict(
-        source=img,
-        xref="x",
-        yref="y",
-        x=X_MIN,
-        y=Y_MAX,
-        sizex=X_MAX - X_MIN,
-        sizey=Y_MAX - Y_MIN,
-        sizing="stretch",
-        layer="below",
-        opacity=1.0,
-    ))
-
-    # Lock alignment & styling
-    fig.update_xaxes(range=[X_MIN, X_MAX], scaleanchor="y")
-    fig.update_yaxes(range=[Y_MIN, Y_MAX])
-    fig.update_traces(zsmooth=False, opacity=opacity)
-    fig.update_layout(width=720, height=720, template="plotly_white",
-                      margin=dict(l=40, r=40, t=60, b=40))
-    return fig
-
-def plot_team_excess_shot_map(season, team_name):
-    df_team = team_data(season, team_name)
-    plot_data(df_team)
-
-def interactive_team_shot_map():
+    Outputs:
+        DataFrame: Team-level shot data for the specified season.
+    """
+    df_aggregate_league = league_stats(season)
     
     df = pd.read_csv('all_shots_goals.csv')
-    teams = sorted(df['team_name'].dropna().unique())
-    seasons = sorted(df['season'].dropna().unique())
+    team_data = df[(df['team_name'] == team_name) ]
+    team_data = team_data[team_data['season'] == season]
+    
+    team_data['coordinates_x'] = team_data['coordinates_x'].apply(abs)
+    team_data['coordinates_x_bins'] = pd.cut(team_data['coordinates_x'], bins=x_bins  )
+    team_data['coordinates_y_bins'] = pd.cut(team_data['coordinates_y'], bins=y_bins)
 
-    team_dropdown = widgets.Dropdown(options=teams, value='Sharks', description='Team:')
-    season_dropdown = widgets.Dropdown(options=seasons, value=20172018, description='Season:')
-
-    output = widgets.Output()
-
-    def update_plot(change=None):
-        with output:
-            clear_output(wait=True)
-            df_team = team_data(season_dropdown.value, team_dropdown.value)
-            plot_data(df_team)
-
-    team_dropdown.observe(update_plot, names='value')
-    season_dropdown.observe(update_plot, names='value')
-    update_plot()
-
-    display(widgets.VBox([widgets.HBox([team_dropdown, season_dropdown]), output]))
-
-
-def interactive_team_shot_map_plotly_with_widgets():
-    df = pd.read_csv('all_shots_goals.csv')
-    teams = sorted(df['team_name'].dropna().unique())
-    seasons = sorted(df['season'].dropna().unique())
-
-    team_dropdown = widgets.Dropdown(options=teams, value='Sharks', description='Team:')
-    season_dropdown = widgets.Dropdown(options=seasons, value=20172018, description='Season:')
-
-    output = widgets.Output()
-
-    def update_plot(change=None):
-        with output:
-            clear_output(wait=True)
-            df_team = team_data(season_dropdown.value, team_dropdown.value)
-            fig = plot_data_plotly(df_team)
-            display(fig)
-
-    team_dropdown.observe(update_plot, names='value')
-    season_dropdown.observe(update_plot, names='value')
-    update_plot()
-
-    display(widgets.VBox([widgets.HBox([team_dropdown, season_dropdown]), output]))
+    df_aggregate_counts_team  = team_data.groupby(
+        ['coordinates_x_bins', 'coordinates_y_bins'],
+        observed=False).size().reset_index(name="counts")
+    
+    #Every game is an hour so we divide by number of gammes 
+    df_aggregate_counts_team['sr/h'] = df_aggregate_counts_team['counts'] / (len(team_data['game_id'].unique()))
+    
+    merged_df = pd.merge(df_aggregate_counts_team, df_aggregate_league,
+                         on=["coordinates_x_bins", "coordinates_y_bins"])
+    
+    merged_df["excess_shot"] =((merged_df["sr/h_x"] - merged_df["sr/h_y"])  )   
+    
+    final_df  = merged_df[['coordinates_x_bins', 'coordinates_y_bins', 'excess_shot']]
+    
+    final_df = final_df.pivot(index ='coordinates_x_bins',
+                                                 columns='coordinates_y_bins',
+                                                 values= 'excess_shot')
+    
+    return final_df
