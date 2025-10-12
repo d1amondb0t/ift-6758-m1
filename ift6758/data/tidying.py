@@ -36,7 +36,8 @@ def load_all_games_events(base_path="./dataStore", years=range(2016, 2024)):
                     game_time = data.get("startTimeUTC")
                     home_team = data.get("homeTeam")
                     away_team = data.get("awayTeam")
-                    all_games[game_id] = {"homeTeam": home_team, "awayTeam": away_team, "gameTime": game_time, "plays" : plays, "rosterSpots": roster_spots}
+                    season = data.get("season")
+                    all_games[game_id] = {"season": season, "homeTeam": home_team, "awayTeam": away_team, "gameTime": game_time, "plays" : plays, "rosterSpots": roster_spots}
     return all_games
 
 
@@ -117,6 +118,7 @@ def events_to_dataframe(all_games_events):
     for game_id, game_data in tqdm( all_games_events.items() ):
         home_team = game_data.get("homeTeam", [])
         away_team= game_data.get("awayTeam", [] )
+        season = game_data.get("season", []) 
         id_h, name_h  = home_team.get("id", []), home_team.get("commonName").get("default") if home_team else []
         id_a, name_a  = away_team.get("id"), away_team.get("commonName").get("default") if away_team else [] 
 
@@ -133,8 +135,10 @@ def events_to_dataframe(all_games_events):
             shooter_player_id = details.get("shootingPlayerId") 
             scoring_player_id = details.get("scoringPlayerId")
             goalie_in_net_id = details.get("goalieInNetId")
+    
             record = {
                 "game_id": game_id,
+                "season" : season,
                 "game_time": pd.to_datetime(game_time),
                 "period": ev.get("periodDescriptor", {}).get("number"),
                 "period_time": ev.get("timeInPeriod"),
