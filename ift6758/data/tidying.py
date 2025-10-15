@@ -2,7 +2,8 @@ import json
 import os
 import pandas as pd
 from tqdm import tqdm
-from acquisition import read_json
+from ift6758.data.acquisition import read_json
+
 
 def load_all_games_events(base_path="./dataStore", years=range(2016, 2024)):
     """
