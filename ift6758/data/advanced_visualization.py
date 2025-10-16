@@ -94,7 +94,7 @@ def build_offensive_zone_figure_for_season(
         go.Figure: Interactive Plotly figure with team heatmaps and rink background.
     """
     
-    df_all = pd.read_csv("all_shots_goals.csv")
+    df_all = pd.read_csv("../ift6758/data/all_shots_goals.csv")
     teams = sorted(df_all.loc[df_all["season"] == season, "team_name"].dropna().unique())
 
     if not teams:
@@ -265,7 +265,7 @@ def league_stats(season):
     Ouputs:
         pd.DataFrame: Aggregated league-level shot statistics.
     """
-    df = pd.read_csv('all_shots_goals.csv')
+    df = pd.read_csv("../ift6758/data/all_shots_goals.csv")
     df_league_stats = df[['game_id', 'season', 'team_name', 'coordinates_x', 'coordinates_y']]
     df_league_stats = df_league_stats.dropna()
     df_league_stats = df_league_stats[df_league_stats['season'] == season]
@@ -299,7 +299,7 @@ def team_data(season, team_name):
     """
     df_aggregate_league = league_stats(season)
     
-    df = pd.read_csv('all_shots_goals.csv')
+    df = pd.read_csv("../ift6758/data/all_shots_goals.csv")
     team_data = df[(df['team_name'] == team_name) ]
     team_data = team_data[team_data['season'] == season]
     
