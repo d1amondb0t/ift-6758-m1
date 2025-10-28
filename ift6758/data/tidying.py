@@ -168,6 +168,113 @@ def events_to_dataframe(all_games_events):
 
     return pd.DataFrame(records)
 
+def  events_to_dataframe2(all_games_events, include_penalties = False):
+    '''
+    Modifying tidying to include the previous games information into the dataframe as well, will figure out how to get penalties in later 
+
+    Update data processing pipeline to look at all event types, not just shots.
+    Add last event type
+    Add last event coordinates (x, y)
+    Compute time since last event (seconds)
+    Compute distance from last event
+
+    Taking the below as a sample to do some testing
+            			"eventId": 28,
+			"periodDescriptor": {
+				"number": 1,
+				"periodType": "REG",
+				"maxRegulationPeriods": 3
+			},
+			"timeInPeriod": "05:51",
+			"timeRemaining": "14:09",
+			"situationCode": "1541",
+			"typeCode": 504,
+			"typeDescKey": "giveaway",
+			"sortOrder": 74,
+			"details": {
+				"xCoord": -5,
+				"yCoord": 39,
+				"zoneCode": "N",
+				"eventOwnerTeamId": 3,
+				"playerId": 8474207
+			}
+            
+    '''
+    records = []
+    for game_id, game_data in tqdm( all_games_events.items() ):
+        home_team = game_data.get("homeTeam", [])
+        away_team= game_data.get("awayTeam", [] )
+        season = game_data.get("season", []) 
+        id_h, name_h  = home_team.get("id", []), home_team.get("commonName").get("default") if home_team else []
+        id_a, name_a  = away_team.get("id"), away_team.get("commonName").get("default") if away_team else [] 
+
+
+        plays = game_data.get("plays", [])
+        players = game_data.get("rosterSpots", [])
+        game_time = game_data.get("gameTime")
+        for ev in range (len(plays)):
+            ev_type = plays[ev].get("typeDescKey")
+            if ev_type not in ["shot-on-goal", "goal"]:
+                continue
+            details = plays[ev].get("details", {})
+            strength, empty_net   = __processeventtype_(plays[ev].get("situationCode"), True if str(id_h) ==  str( details.get("eventOwnerTeamId")) else False )
+            shooter_player_id = details.get("shootingPlayerId") 
+            scoring_player_id = details.get("scoringPlayerId")
+            goalie_in_net_id = details.get("goalieInNetId")
+
+            #Building previous event 
+            last_event  = ev-1 
+            ev_type_prev = plays[last_event].get("typeDescKey")
+            plays[last_event].get("details")
+            ev_coord_x_prev = plays[last_event].get("details" ,{}).get('xCoord')
+            ev_coord_y_prev = plays[last_event].get("details", {} ).get('yCoord')
+            ev_coord_y_timeperiod_prev = plays[last_event].get("timeInPeriod")
+            ev_coord_situation_code = plays[last_event].get("situationCode")
+            ev_coord_eventid = plays[last_event].get("eventId")
+
+
+    
+            record = {
+                "game_id": game_id,
+                "season" : season,
+                "game_time": pd.to_datetime(game_time),
+                "period": plays[ev].get("periodDescriptor", {}).get("number"),
+                "period_time": plays[ev].get("timeInPeriod"),
+                "event_type": "goal" if ev_type == "goal" else "shot",
+                "team_id": details.get("eventOwnerTeamId"),
+                "team_name": name_h if id_h == details.get("eventOwnerTeamId") else name_a, 
+                "coordinates_x": details.get("xCoord"),
+                "coordinates_y": details.get("yCoord"),
+                "shooter": shooter_player_id or scoring_player_id,
+                "goalie": goalie_in_net_id,
+                "shot_type": details.get("shotType"), 
+                "empty_net": empty_net,
+                "strength": strength,
+                "situation_code": plays[ev].get("situationCode"),
+                "previous_eventid": ev_coord_eventid, 
+                "previous_event_id" : ev_type_prev,
+                "previous_event_x":ev_coord_x_prev,
+                "previous_event_y":ev_coord_y_prev,
+                "previous_event_timeperiod": ev_coord_y_timeperiod_prev, 
+                "previous_event_situationcode": ev_coord_situation_code, 
+
+
+
+                
+            }
+
+            # joueurs impliqués
+            for player in players:
+                player_id = player.get("playerId")
+                if (player_id == shooter_player_id) or (player_id == scoring_player_id):
+                    record["shooter"] = player.get("firstName", "").get("default") + " " + player.get("lastName", "").get("default")
+                elif player_id == goalie_in_net_id:
+                    record["goalie"] = player.get("firstName", "").get("default") + " " + player.get("lastName", "").get("default") 
+
+            records.append(record)
+
+    return pd.DataFrame(records)
+
 if __name__ == "__main__":
     with open("game.json", "w") as f:
         json.dump("./dataStore/2016/playoff/2016030111.json", f, indent=4)
@@ -186,3 +293,5 @@ if __name__ == "__main__":
     output_csv = "all_shots_goals.csv"
     df.to_csv(output_csv, index=False)
     print(f"DataFrame saved to {output_csv}")
+
+
