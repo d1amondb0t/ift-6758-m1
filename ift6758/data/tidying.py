@@ -80,24 +80,27 @@ def __processeventtype_(situationcode, isHome):
     - The logic for interpreting `situationcode` is based on the NHL API discussion:
       https://gitlab.com/dword4/nhlapi/-/issues/110#note_1582828385
     """
-    away_team_sum = int (situationcode[0]) + int (situationcode[1])
-    home_team_sum = int(situationcode[2]) + int (situationcode[3])
-    goalie_away = int(situationcode[0])
-    goalie_home = int(situationcode[3])
-    #Determine the shot type
-    if home_team_sum == away_team_sum:
-        strength  = "Even Strength"
-    elif (home_team_sum > away_team_sum and isHome) or (away_team_sum> home_team_sum and not isHome):
-        strength = "Power Play"
-    elif (home_team_sum < away_team_sum and isHome) or (away_team_sum< home_team_sum and not isHome):
-        strength = "Short-Handed Goal"
-    
-    #Check if the goalie was present or not
-    if (isHome and goalie_away == 0) or (not isHome and goalie_home == 0):
-        empty_net = True 
-    else:
-        empty_net = False
-    return strength, empty_net
+
+    if situationcode: 
+        away_team_sum = int (situationcode[0]) + int (situationcode[1])
+        home_team_sum = int(situationcode[2]) + int (situationcode[3])
+        goalie_away = int(situationcode[0])
+        goalie_home = int(situationcode[3])
+        #Determine the shot type
+        if home_team_sum == away_team_sum:
+            strength  = "Even Strength"
+        elif (home_team_sum > away_team_sum and isHome) or (away_team_sum> home_team_sum and not isHome):
+            strength = "Power Play"
+        elif (home_team_sum < away_team_sum and isHome) or (away_team_sum< home_team_sum and not isHome):
+            strength = "Short-Handed Goal"
+        
+        #Check if the goalie was present or not
+        if (isHome and goalie_away == 0) or (not isHome and goalie_home == 0):
+            empty_net = True 
+        else:
+            empty_net = False
+        return strength, empty_net
+    return None, None
     
 
 def events_to_dataframe(all_games_events):
@@ -168,7 +171,7 @@ def events_to_dataframe(all_games_events):
 
     return pd.DataFrame(records)
 
-def  events_to_dataframe2(all_games_events, include_penalties = False):
+def  events_to_dataframe2(all_games_events):
     '''
     Modifying tidying to include the previous games information into the dataframe as well, will figure out how to get penalties in later 
 
@@ -240,7 +243,7 @@ def  events_to_dataframe2(all_games_events, include_penalties = False):
                 "game_time": pd.to_datetime(game_time),
                 "period": plays[ev].get("periodDescriptor", {}).get("number"),
                 "period_time": plays[ev].get("timeInPeriod"),
-                "event_type": "goal" if ev_type == "goal" else "shot",
+                "event_type": ev_type,
                 "team_id": details.get("eventOwnerTeamId"),
                 "team_name": name_h if id_h == details.get("eventOwnerTeamId") else name_a, 
                 "coordinates_x": details.get("xCoord"),
