@@ -62,10 +62,13 @@ def __processeventtype_(situationcode, isHome):
     ----------
     situationcode : str or list-like
         Encoded player situation, typically a 4-character string where:
-        - [0]: number of home skaters (including goalie)
-        - [1]: number of home penalties
-        - [2]: number of away skaters (including goalie)
-        - [3]: number of away penalties
+            G - goalie on ice for away team [0]
+
+            I - on ice skaters for away team [1]
+
+            i - on ice skaters for home team [2]
+
+            g - goalie on ice for home team [3]
     isHome : bool
         True if the shot was taken by the home team, False if taken by the away team.
 
@@ -92,15 +95,21 @@ def __processeventtype_(situationcode, isHome):
         elif (home_team_sum > away_team_sum and isHome) or (away_team_sum> home_team_sum and not isHome):
             strength = "Power Play"
         elif (home_team_sum < away_team_sum and isHome) or (away_team_sum< home_team_sum and not isHome):
-            strength = "Short-Handed Goal"
+            strength = "Short-Handed"
         
         #Check if the goalie was present or not
         if (isHome and goalie_away == 0) or (not isHome and goalie_home == 0):
             empty_net = True 
         else:
             empty_net = False
-        return strength, empty_net
-    return None, None
+        if isHome:
+            frinedly_skaters = int(situationcode[2])
+            opponent_skaters = int(situationcode[1])
+        else: 
+            frinedly_skaters = int(situationcode[1])
+            opponent_skaters = int(situationcode[2])
+        return strength, empty_net, frinedly_skaters, opponent_skaters
+    return None, None, None, None
     
 
 def events_to_dataframe(all_games_events):
@@ -175,33 +184,12 @@ def  events_to_dataframe2(all_games_events):
     '''
     Modifying tidying to include the previous games information into the dataframe as well, will figure out how to get penalties in later 
 
+    TODO: modifying this function a bit to keep track of Penalties, can store it in a record on it's own and send it along with the df 
     Update data processing pipeline to look at all event types, not just shots.
     Add last event type
     Add last event coordinates (x, y)
     Compute time since last event (seconds)
     Compute distance from last event
-
-    Taking the below as a sample to do some testing
-            			"eventId": 28,
-			"periodDescriptor": {
-				"number": 1,
-				"periodType": "REG",
-				"maxRegulationPeriods": 3
-			},
-			"timeInPeriod": "05:51",
-			"timeRemaining": "14:09",
-			"situationCode": "1541",
-			"typeCode": 504,
-			"typeDescKey": "giveaway",
-			"sortOrder": 74,
-			"details": {
-				"xCoord": -5,
-				"yCoord": 39,
-				"zoneCode": "N",
-				"eventOwnerTeamId": 3,
-				"playerId": 8474207
-			}
-            
     '''
     records = []
     for game_id, game_data in tqdm( all_games_events.items() ):
@@ -210,8 +198,6 @@ def  events_to_dataframe2(all_games_events):
         season = game_data.get("season", []) 
         id_h, name_h  = home_team.get("id", []), home_team.get("commonName").get("default") if home_team else []
         id_a, name_a  = away_team.get("id"), away_team.get("commonName").get("default") if away_team else [] 
-
-
         plays = game_data.get("plays", [])
         players = game_data.get("rosterSpots", [])
         game_time = game_data.get("gameTime")
@@ -220,7 +206,9 @@ def  events_to_dataframe2(all_games_events):
             if ev_type not in ["shot-on-goal", "goal"]:
                 continue
             details = plays[ev].get("details", {})
-            strength, empty_net   = __processeventtype_(plays[ev].get("situationCode"), True if str(id_h) ==  str( details.get("eventOwnerTeamId")) else False )
+            strength, empty_net, friendly_skaters, opponent_skaters   = __processeventtype_(plays[ev].get("situationCode"), True if str(id_h) ==  str( details.get("eventOwnerTeamId")) else False )
+
+            isHome  = True if str(id_h) ==  str( details.get("eventOwnerTeamId")) else False
             shooter_player_id = details.get("shootingPlayerId") 
             scoring_player_id = details.get("scoringPlayerId")
             goalie_in_net_id = details.get("goalieInNetId")
@@ -232,8 +220,6 @@ def  events_to_dataframe2(all_games_events):
             ev_coord_x_prev = plays[last_event].get("details" ,{}).get('xCoord')
             ev_coord_y_prev = plays[last_event].get("details", {} ).get('yCoord')
             ev_coord_y_timeperiod_prev = plays[last_event].get("timeInPeriod")
-            ev_coord_situation_code = plays[last_event].get("situationCode")
-            ev_coord_eventid = plays[last_event].get("eventId")
 
 
     
@@ -254,19 +240,15 @@ def  events_to_dataframe2(all_games_events):
                 "empty_net": empty_net,
                 "strength": strength,
                 "situation_code": plays[ev].get("situationCode"),
-                "previous_eventid": ev_coord_eventid, 
-                "previous_event_id" : ev_type_prev,
+                "previous_event_name" : ev_type_prev,
                 "previous_event_x":ev_coord_x_prev,
                 "previous_event_y":ev_coord_y_prev,
                 "previous_event_timeperiod": ev_coord_y_timeperiod_prev, 
-                "previous_event_situationcode": ev_coord_situation_code, 
+                "isHomeTeam": isHome, 
+                "friendly_skaters": friendly_skaters, 
+                "opponent_skaters": opponent_skaters
 
-
-
-                
             }
-
-            # joueurs impliqués
             for player in players:
                 player_id = player.get("playerId")
                 if (player_id == shooter_player_id) or (player_id == scoring_player_id):
@@ -275,8 +257,9 @@ def  events_to_dataframe2(all_games_events):
                     record["goalie"] = player.get("firstName", "").get("default") + " " + player.get("lastName", "").get("default") 
 
             records.append(record)
-
-    return pd.DataFrame(records)
+    df = pd.DataFrame(records)
+    df.to_csv("../ift6758/data/allshotgoals2.csv", index=False)
+    return df
 
 if __name__ == "__main__":
     with open("game.json", "w") as f:
