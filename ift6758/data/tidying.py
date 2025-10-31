@@ -212,6 +212,7 @@ def  events_to_dataframe2(all_games_events):
             shooter_player_id = details.get("shootingPlayerId") 
             scoring_player_id = details.get("scoringPlayerId")
             goalie_in_net_id = details.get("goalieInNetId")
+            ev_zone_code = plays[ev].get("details", {} ).get('zoneCode')
 
             #Building previous event 
             last_event  = ev-1 
@@ -246,7 +247,8 @@ def  events_to_dataframe2(all_games_events):
                 "previous_event_timeperiod": ev_coord_y_timeperiod_prev, 
                 "isHomeTeam": isHome, 
                 "friendly_skaters": friendly_skaters, 
-                "opponent_skaters": opponent_skaters
+                "opponent_skaters": opponent_skaters, 
+                "zone_code": ev_zone_code
 
             }
             for player in players:

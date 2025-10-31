@@ -45,23 +45,6 @@ def _compute_speed(df):
     df.loc[df['time_since_last_event'] != 0, 'speed'] = df['distance_from_last_event'] / df['time_since_last_event']
     return df 
 
-
-#This is the same transformation as the moneypuck distance that i already calculated :( 
-'''
-def _compute_angle_change_monepuck(df):
-    net_x, net_y = 89, 0
-    numerator = ((net_x - df['coordinates_x']) * (net_x - df['previous_event_x']) +
-             (net_y - df['coordinates_y']) * (net_y - df['previous_event_y']))   
-    denominator = (
-        np.sqrt((net_x - df['coordinates_x'])**2 + (net_y - df['coordinates_y'])**2) *
-        np.sqrt((net_x - df['previous_event_x'])**2 + (net_y - df['previous_event_y'])**2)
-    )   
-    df['angle_change_moneypuck'] = np.degrees(np.arccos(np.clip( (numerator/denominator), -1.0, 1.0)))
-    df.loc[(df['rebound'] == False, "angle_change")] = 0 
-
-    return df 
- '''
-
 def _compute_angle_change(df):
     same_section = np.sign(df['coordinates_y']) == np.sign(df['previous_event_y'])
     df.loc[(df['rebound'] == True) & (same_section), "angle_change"] =  np.abs(df['angle_shot'] -  df['angle_shot_prev']) #Not entirely sure about this, i would assume it's just a difference in shot angles but the graphic seems to be showing something like this 
@@ -79,9 +62,18 @@ def _compute_shot_angle(df):
     df['angle_shot'] = np.degrees(np.arctan2(y_diff, x_diff))
     df.loc[df['rebound'] == True, "angle_shot_prev"]  =  np.degrees(np.arctan2(y_diff2, x_diff2))
     return df 
-
-def __compute_powerplay_features__(df):
+def _compute_shot_distance(df):
+    net_x, net_y = 89, 0
+    net_x2,net_y2 = -89,0 
+    df['distance1'] = np.sqrt((df['coordinates_x'] - net_x)**2 + (df['coordinates_y'] - net_y)**2)
+    df['distance2'] = np.sqrt((df['coordinates_x'] - net_x2)**2 + (df['coordinates_y'] - net_y2)**2)
+    df.loc[df['zone_code'] == 'O', 'distance_shot'] = df[['distance1', 'distance2']].min(axis=1)
+    df.loc[df['zone_code'] != 'O', 'distance_shot'] = df[['distance1', 'distance2']].max(axis=1)
+    df.drop(columns=['distance1', 'distance2'], inplace=True)
+    return df
+def _compute_powerplay_features(df):
     '''TODO need to get all the penalty events from the JSON and then join them figure out how to track them to the goal'''
+
     return df 
 
 def feature_engineering_two(years):
@@ -100,6 +92,7 @@ def feature_engineering_two(years):
         df =  _compute_shot_angle(df)
         df = _compute_speed(df)
         df = _compute_angle_change(df)
+        df = _compute_shot_distance(df)
     return df
 
 
