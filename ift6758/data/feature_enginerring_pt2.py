@@ -16,6 +16,7 @@ def _calculate_rebound(df):
     #By milestone 2 definition we are just checking if the previous shot was taken or not, if it was a shot then it's a rebound 
     df['rebound'] = df['previous_event_name'].isin(['shot-on-goal', 'missed-shot'])
     return df 
+
 def _lasteventtime(df):
     ''' Takes the previous event time period and converts it to the seconds'''
     minutes = df['previous_event_timeperiod'].str.split(':', expand=True)[0].astype(int)
@@ -23,6 +24,7 @@ def _lasteventtime(df):
     period_seconds = minutes * 60 + seconds
     df['previous_event_timeseconds'] = period_seconds
     return df 
+
 def _curenteventtime(df):
     '''takes the current event time period and converts it into seconds compared '''
     minutes = df['period_time'].str.split(':', expand=True)[0].astype(int)
@@ -30,6 +32,7 @@ def _curenteventtime(df):
     period_seconds = minutes * 60 + seconds
     df['current_event_timeseconds'] = period_seconds
     return df 
+
 def _computetimesincelastevent(df):
     '''Using the lasteventtime - currenteventtime to compute the time since last event'''
     df['time_since_last_event'] =  df['current_event_timeseconds'] - df['previous_event_timeseconds'] 
@@ -51,6 +54,7 @@ def _compute_angle_change(df):
     df.loc[(df['rebound'] == True) & (~same_section), "angle_change"]=   (np.abs(df['angle_shot'] +  df['angle_shot_prev'])) #Not entirely sure about this, i would assume it's just a difference in shot angles but the graphic seems to be showing something like this 
     df.loc[(df['rebound'] == False, "angle_change")] = 0.0
     return df 
+
 def _compute_shot_angle(df):
     '''taking the shot angles for this '''
     net_x, net_y = 89, 0
@@ -62,6 +66,7 @@ def _compute_shot_angle(df):
     df['angle_shot'] = np.degrees(np.arctan2(y_diff, x_diff))
     df.loc[df['rebound'] == True, "angle_shot_prev"]  =  np.degrees(np.arctan2(y_diff2, x_diff2))
     return df 
+
 def _compute_shot_distance(df):
     net_x, net_y = 89, 0
     net_x2,net_y2 = -89,0 
@@ -71,6 +76,7 @@ def _compute_shot_distance(df):
     df.loc[df['zone_code'] != 'O', 'distance_shot'] = df[['distance1', 'distance2']].max(axis=1)
     df.drop(columns=['distance1', 'distance2'], inplace=True)
     return df
+
 def _compute_powerplay_features(df):
     '''TODO need to get all the penalty events from the JSON and then join them figure out how to track them to the goal'''
 
