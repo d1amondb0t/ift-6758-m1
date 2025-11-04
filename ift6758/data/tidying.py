@@ -62,10 +62,13 @@ def __processeventtype_(situationcode, isHome):
     ----------
     situationcode : str or list-like
         Encoded player situation, typically a 4-character string where:
-        - [0]: number of home skaters (including goalie)
-        - [1]: number of home penalties
-        - [2]: number of away skaters (including goalie)
-        - [3]: number of away penalties
+            G - goalie on ice for away team [0]
+
+            I - on ice skaters for away team [1]
+
+            i - on ice skaters for home team [2]
+
+            g - goalie on ice for home team [3]
     isHome : bool
         True if the shot was taken by the home team, False if taken by the away team.
 
@@ -80,24 +83,33 @@ def __processeventtype_(situationcode, isHome):
     - The logic for interpreting `situationcode` is based on the NHL API discussion:
       https://gitlab.com/dword4/nhlapi/-/issues/110#note_1582828385
     """
-    away_team_sum = int (situationcode[0]) + int (situationcode[1])
-    home_team_sum = int(situationcode[2]) + int (situationcode[3])
-    goalie_away = int(situationcode[0])
-    goalie_home = int(situationcode[3])
-    #Determine the shot type
-    if home_team_sum == away_team_sum:
-        strength  = "Even Strength"
-    elif (home_team_sum > away_team_sum and isHome) or (away_team_sum> home_team_sum and not isHome):
-        strength = "Power Play"
-    elif (home_team_sum < away_team_sum and isHome) or (away_team_sum< home_team_sum and not isHome):
-        strength = "Short-Handed Goal"
-    
-    #Check if the goalie was present or not
-    if (isHome and goalie_away == 0) or (not isHome and goalie_home == 0):
-        empty_net = True 
-    else:
-        empty_net = False
-    return strength, empty_net
+
+    if situationcode: 
+        away_team_sum = int (situationcode[0]) + int (situationcode[1])
+        home_team_sum = int(situationcode[2]) + int (situationcode[3])
+        goalie_away = int(situationcode[0])
+        goalie_home = int(situationcode[3])
+        #Determine the shot type
+        if home_team_sum == away_team_sum:
+            strength  = "Even Strength"
+        elif (home_team_sum > away_team_sum and isHome) or (away_team_sum> home_team_sum and not isHome):
+            strength = "Power Play"
+        elif (home_team_sum < away_team_sum and isHome) or (away_team_sum< home_team_sum and not isHome):
+            strength = "Short-Handed"
+        
+        #Check if the goalie was present or not
+        if (isHome and goalie_away == 0) or (not isHome and goalie_home == 0):
+            empty_net = True 
+        else:
+            empty_net = False
+        if isHome:
+            frinedly_skaters = int(situationcode[2])
+            opponent_skaters = int(situationcode[1])
+        else: 
+            frinedly_skaters = int(situationcode[1])
+            opponent_skaters = int(situationcode[2])
+        return strength, empty_net, frinedly_skaters, opponent_skaters
+    return None, None, None, None
     
 
 def events_to_dataframe(all_games_events):
@@ -168,6 +180,89 @@ def events_to_dataframe(all_games_events):
 
     return pd.DataFrame(records)
 
+def  events_to_dataframe2(all_games_events):
+    '''
+    Modifying tidying to include the previous games information into the dataframe as well, will figure out how to get penalties in later 
+
+    TODO: modifying this function a bit to keep track of Penalties, can store it in a record on it's own and send it along with the df 
+    Update data processing pipeline to look at all event types, not just shots.
+    Add last event type
+    Add last event coordinates (x, y)
+    Compute time since last event (seconds)
+    Compute distance from last event
+    '''
+    records = []
+    for game_id, game_data in tqdm( all_games_events.items() ):
+        home_team = game_data.get("homeTeam", [])
+        away_team= game_data.get("awayTeam", [] )
+        season = game_data.get("season", []) 
+        id_h, name_h  = home_team.get("id", []), home_team.get("commonName").get("default") if home_team else []
+        id_a, name_a  = away_team.get("id"), away_team.get("commonName").get("default") if away_team else [] 
+        plays = game_data.get("plays", [])
+        players = game_data.get("rosterSpots", [])
+        game_time = game_data.get("gameTime")
+        for ev in range (len(plays)):
+            ev_type = plays[ev].get("typeDescKey")
+            if ev_type not in ["shot-on-goal", "goal"]:
+                continue
+            details = plays[ev].get("details", {})
+            strength, empty_net, friendly_skaters, opponent_skaters   = __processeventtype_(plays[ev].get("situationCode"), True if str(id_h) ==  str( details.get("eventOwnerTeamId")) else False )
+
+            isHome  = True if str(id_h) ==  str( details.get("eventOwnerTeamId")) else False
+            shooter_player_id = details.get("shootingPlayerId") 
+            scoring_player_id = details.get("scoringPlayerId")
+            goalie_in_net_id = details.get("goalieInNetId")
+            ev_zone_code = plays[ev].get("details", {} ).get('zoneCode')
+
+            #Building previous event 
+            last_event  = ev-1 
+            ev_type_prev = plays[last_event].get("typeDescKey")
+            plays[last_event].get("details")
+            ev_coord_x_prev = plays[last_event].get("details" ,{}).get('xCoord')
+            ev_coord_y_prev = plays[last_event].get("details", {} ).get('yCoord')
+            ev_coord_y_timeperiod_prev = plays[last_event].get("timeInPeriod")
+
+
+    
+            record = {
+                "game_id": game_id,
+                "season" : season,
+                "game_time": pd.to_datetime(game_time),
+                "period": plays[ev].get("periodDescriptor", {}).get("number"),
+                "period_time": plays[ev].get("timeInPeriod"),
+                "event_type": ev_type,
+                "team_id": details.get("eventOwnerTeamId"),
+                "team_name": name_h if id_h == details.get("eventOwnerTeamId") else name_a, 
+                "coordinates_x": details.get("xCoord"),
+                "coordinates_y": details.get("yCoord"),
+                "shooter": shooter_player_id or scoring_player_id,
+                "goalie": goalie_in_net_id,
+                "shot_type": details.get("shotType"), 
+                "empty_net": empty_net,
+                "strength": strength,
+                "situation_code": plays[ev].get("situationCode"),
+                "previous_event_name" : ev_type_prev,
+                "previous_event_x":ev_coord_x_prev,
+                "previous_event_y":ev_coord_y_prev,
+                "previous_event_timeperiod": ev_coord_y_timeperiod_prev, 
+                "isHomeTeam": isHome, 
+                "friendly_skaters": friendly_skaters, 
+                "opponent_skaters": opponent_skaters, 
+                "zone_code": ev_zone_code
+
+            }
+            for player in players:
+                player_id = player.get("playerId")
+                if (player_id == shooter_player_id) or (player_id == scoring_player_id):
+                    record["shooter"] = player.get("firstName", "").get("default") + " " + player.get("lastName", "").get("default")
+                elif player_id == goalie_in_net_id:
+                    record["goalie"] = player.get("firstName", "").get("default") + " " + player.get("lastName", "").get("default") 
+
+            records.append(record)
+    df = pd.DataFrame(records)
+    df.to_csv("../ift6758/data/allshotgoals2.csv", index=False)
+    return df
+
 if __name__ == "__main__":
     with open("game.json", "w") as f:
         json.dump("./dataStore/2016/playoff/2016030111.json", f, indent=4)
@@ -186,3 +281,5 @@ if __name__ == "__main__":
     output_csv = "all_shots_goals.csv"
     df.to_csv(output_csv, index=False)
     print(f"DataFrame saved to {output_csv}")
+
+
