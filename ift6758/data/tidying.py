@@ -148,6 +148,7 @@ def events_to_dataframe(all_games_events):
             shooter_player_id = details.get("shootingPlayerId") 
             scoring_player_id = details.get("scoringPlayerId")
             goalie_in_net_id = details.get("goalieInNetId")
+            ev_zone_code = ev.get("details", {} ).get('zoneCode')
     
             record = {
                 "game_id": game_id,
@@ -165,7 +166,8 @@ def events_to_dataframe(all_games_events):
                 "shot_type": details.get("shotType"), 
                 "empty_net": empty_net,
                 "strength": strength,
-                "situation_code": ev.get("situationCode"),
+                "situation_code": ev.get("situationCode"), 
+                "zone_code": ev_zone_code
             }
 
             # joueurs impliqués
