@@ -144,10 +144,11 @@ def events_to_dataframe(all_games_events):
             if ev_type not in ["shot-on-goal", "goal"]:
                 continue
             details = ev.get("details", {})
-            strength, empty_net   = __processeventtype_(ev.get("situationCode"), True if str(id_h) ==  str( details.get("eventOwnerTeamId")) else False )
+            strength, empty_net, _, _   = __processeventtype_(ev.get("situationCode"), True if str(id_h) ==  str( details.get("eventOwnerTeamId")) else False )
             shooter_player_id = details.get("shootingPlayerId") 
             scoring_player_id = details.get("scoringPlayerId")
             goalie_in_net_id = details.get("goalieInNetId")
+            ev_zone_code = ev.get("details", {} ).get('zoneCode')
     
             record = {
                 "game_id": game_id,
@@ -165,7 +166,8 @@ def events_to_dataframe(all_games_events):
                 "shot_type": details.get("shotType"), 
                 "empty_net": empty_net,
                 "strength": strength,
-                "situation_code": ev.get("situationCode"),
+                "situation_code": ev.get("situationCode"), 
+                "zone_code": ev_zone_code
             }
 
             # joueurs impliqués
