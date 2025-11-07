@@ -76,6 +76,12 @@ def _compute_shot_distance(df):
     df.loc[df['zone_code'] != 'O', 'distance_shot'] = df[['distance1', 'distance2']].max(axis=1)
     df.drop(columns=['distance1', 'distance2'], inplace=True)
     return df
+def _calculate_is_goal(df):
+    df['is_goal'] = (df['event_type'] == 'goal').astype(int)
+    return df
+
+
+
 
 def _compute_powerplay_features(df):
     '''TODO need to get all the penalty events from the JSON and then join them figure out how to track them to the goal'''
@@ -91,7 +97,7 @@ def feature_engineering_two(years):
         df = events_to_dataframe2(all_games_events)
     if len(df) !=0: 
         df = _curenteventtime(df)
-        df  = _lasteventtime(df)
+        df = _lasteventtime(df)
         df = _computetimesincelastevent(df)
         df = _calculate_rebound(df)
         df = _compute_last_event_distance(df)
@@ -99,6 +105,8 @@ def feature_engineering_two(years):
         df = _compute_speed(df)
         df = _compute_angle_change(df)
         df = _compute_shot_distance(df)
+        df = _calculate_is_goal(df)
+
     return df
 
 
