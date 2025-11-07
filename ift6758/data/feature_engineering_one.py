@@ -18,7 +18,7 @@ def _calculate_distance_to_net(df) -> pd.DataFrame:
   df["distance1"] = np.sqrt((df["coordinates_x"] - net_x)**2 + (df["coordinates_y"] - net_y)**2)
   df["distance2"] = np.sqrt((df["coordinates_x"] - net_x2)**2 + (df["coordinates_y"] - net_y2)**2)
 
-  df.loc[df["zone_code"] == "D", "distance_to_net"] = df[["distance1", "distance2"]].max(axis=1)
+  df.loc[df["zone_code"] == "D", "distance_to_net"] = df[["distance1", "distance2"]].min(axis=1)
   df.loc[df["zone_code"] != "D", "distance_to_net"] = df[["distance1", "distance2"]].min(axis=1)
 
   df.drop(columns=["distance1", "distance2"], inplace=True)
@@ -27,8 +27,8 @@ def _calculate_distance_to_net(df) -> pd.DataFrame:
   
 def _calculate_shot_angle(df) -> pd.DataFrame:
   net_x, net_y = 89, 0
-  x_diff = np.abs(net_x - df['coordinates_x'])
-  y_diff = np.abs(net_y - df['coordinates_y'])
+  x_diff = net_x - df['coordinates_x']
+  y_diff = net_y - df['coordinates_y']
   df['shot_angle'] = np.degrees(np.arctan2(y_diff, x_diff))
   return df
 
