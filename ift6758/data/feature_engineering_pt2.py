@@ -12,8 +12,7 @@ from ift6758.data.acquisition import read_json
 
 
 def _calculate_rebound(df):
-    #not sure again which shots we should be looking at so just including all kinds of shots here 
-    #By milestone 2 definition we are just checking if the previous shot was taken or not, if it was a shot then it's a rebound 
+    '''Calculates the rebound boolean, if the previous shot was a shot on goal or missed shot and the current shot is a shot on goal we call it a rebound'''
     df['rebound'] = df['previous_event_name'].isin(['shot-on-goal', 'missed-shot'])
     return df 
 
@@ -35,7 +34,7 @@ def _curenteventtime(df):
 
 def _computetimesincelastevent(df):
     '''Using the lasteventtime - currenteventtime to compute the time since last event'''
-    df['time_since_last_event'] =  df['current_event_timeseconds'] - df['previous_event_timeseconds'] 
+    df['time_since_last_event'] =  np.abs( df['current_event_timeseconds'] - df['previous_event_timeseconds'] ) #Taking the absolute time difference, we should not have negative values 
     return df
 
 def _compute_last_event_distance(df):
@@ -56,7 +55,7 @@ def _compute_angle_change(df):
     return df 
 
 def _compute_shot_angle(df):
-    '''taking the shot angles for this '''
+    '''taking the shot angles for this given the x and y cordinates'''
     net_x, net_y = 89, 0
     x_diff  = np.abs( net_x - df['coordinates_x']) 
     y_diff  =np.abs ( df['coordinates_y']) 
@@ -68,15 +67,17 @@ def _compute_shot_angle(df):
     return df 
 
 def _compute_shot_distance(df):
+    '''computes the shot distance'''
     net_x, net_y = 89, 0
     net_x2,net_y2 = -89,0 
     df['distance1'] = np.sqrt((df['coordinates_x'] - net_x)**2 + (df['coordinates_y'] - net_y)**2)
     df['distance2'] = np.sqrt((df['coordinates_x'] - net_x2)**2 + (df['coordinates_y'] - net_y2)**2)
     df.loc[df['zone_code'] == 'O', 'distance_shot'] = df[['distance1', 'distance2']].min(axis=1)
-    df.loc[df['zone_code'] != 'O', 'distance_shot'] = df[['distance1', 'distance2']].max(axis=1)
+    df.loc[df['zone_code'] != 'O', 'distance_shot'] = df[['distance1', 'distance2']].min(axis=1)
     df.drop(columns=['distance1', 'distance2'], inplace=True)
     return df
 def _calculate_is_goal(df):
+    '''checks if the event type is a goal or not'''
     df['is_goal'] = (df['event_type'] == 'goal').astype(int)
     return df
 
