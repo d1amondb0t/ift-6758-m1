@@ -17,3 +17,6 @@ scikit-learn~=1.7.1
 ipython~=9.1.0
 pillow~=11.3.0
 scipy~=1.16.0
+catboost
+termcolor
+feature-engine
