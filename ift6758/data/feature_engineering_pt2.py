@@ -4,6 +4,9 @@ from ift6758.data import load_game
 from ift6758.data.tidying import load_all_games_events
 from ift6758.data.tidying  import events_to_dataframe2
 import json
+import wandb
+from dotenv import load_dotenv
+
 import numpy as np
 import os
 from tqdm import tqdm
@@ -42,13 +45,19 @@ def _curenteventtime(df)-> pd.DataFrame:
     df['current_event_timeseconds'] = period_seconds
     return df 
 
+def _computetruegameseconds(df) -> pd.DataFrame:
+    '''
+    Calculates the true geame event seconds given across the game of hockey 
+    '''
+    df['game_seconds_true'] = (df['period'] - 1) * 1200 + df['current_event_timeseconds']
+    return df 
 def _computetimesincelastevent(df)-> pd.DataFrame:
     '''
     Calculates the time difference between the current event and the previous event 
     by subtracting previous_event_timeseconds from current_event_timeseconds. 
     Returns: df with time_since_last_event column included
     '''
-    df['time_since_last_event'] =  df['current_event_timeseconds'] - df['previous_event_timeseconds'] 
+    df['time_since_last_event'] =  np.abs ( df['current_event_timeseconds'] - df['previous_event_timeseconds'] ) 
     return df
 
 def _compute_last_event_distance(df)-> pd.DataFrame:
@@ -123,6 +132,26 @@ def _calculate_is_goal(df) -> pd.DataFrame:
     return df
 
 
+def save_dataframe_to_wandb(df,project='IFT6758-2025-B01', name='wpg_v_wsh_2017021065') -> None:
+    '''
+    Saves the final Dataframe into wanddb, 
+
+    Params: dataframe (df), name of the project (default is 'IFT6758-2025-B01') and name of the artifact (default is wpg_v_wsh_2017021065 )
+    Returns: Nothing (:D)
+    '''
+    load_dotenv()
+    api_key = os.getenv("WANDB_API_KEY")
+    wandb.login(key=api_key)
+    run = wandb.init(project = project)
+    artifact = wandb.Artifact(
+    name,
+    type="dataset"
+    )
+    my_table = wandb.Table(dataframe=df)
+    artifact.add(my_table, "wpg_v_wsh_2017021065")
+    run.log_artifact(artifact)
+    
+
 def feature_engineering_two(years):
     '''
     Performs feature engineering on game event data for specified years.
@@ -164,6 +193,7 @@ def feature_engineering_two(years):
         df = _compute_angle_change(df)
         df = _compute_shot_distance(df)
         df = _calculate_is_goal(df)
+        df = _computetruegameseconds(df)
     return df
 
 
