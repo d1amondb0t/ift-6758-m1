@@ -14,17 +14,25 @@ Our first methodology was to simply do a **hyperparameter search**, so an exhaus
 
 The best model across all the testing was the **CatBoost classifier**.
 
-
 > **Notice:**  
 > This pattern — where **CatBoost consistently outperformed** other models — was also observed in additional optimization tests that we conducted but did not include in this report.  
 > The full details of those experiments can be reviewed in the notebook  `give_it_your_best_shot.ipynb`
 
 After obtaining our optimized hyperparameters, we also conducted other approaches which we found to be interesting to try out different models to increase accuracy while reducing error. To determine if one model was better than another, we chose to compare the **ROC score** instead of accuracy. This is an arbitrary metric we chose, but accuracy could have been chosen if desired.
 
-Our second approach was to try **MRMR (Minimum Redundancy Maximum Relevance)** in which we observed the most relevant features in the dataframe while removing all the ones that weren't useful.  
+Our second approach was to try **MRMR (Minimum Redundancy Maximum Relevance)** in which we observed the most relevant features in the dataframe while removing all the ones that weren't useful. This resulted in the following graph which shows the feature relevancy according to this methodology:
+
+[![MRMR Feature Relevance](./figures/give_it_your_best_shot/figures/mrmr_feature_relevance.png)](./figures/give_it_your_best_shot/figures/mrmr_feature_relevance.png)  
+
 This kept 20 out of the 39 features and we then trained the model. This resulted in performance similar to the grid search method, and the models didn't yield any significant improvements.
 
 Our third approach was to try a **Lasso regularization** method that we used on the training set, and we then selected the top 20 features, expanding from our last methodology. However, this also didn't yield any significant improvements or notable changes in model performance.
+
+We also used Random Forest to find the best features in relation to the predicted value which is if the shot is a goal or not and this is the grpah we obtain showing the relevant features:
+
+[![Random Forest Feature Selected](./figures/give_it_your_best_shot/figures/rf_feature_selection.png)](./figures/give_it_your_best_shot/figures/rf_feature_selection.png)
+
+We then trained a model with the top 20 features selected by this Random Forest method, but this led to no notable improvements in model performance.
 
 We continued with other methods such as trying **different splits in the test and validation sets**, and **adding new features** such as `isRush`, which computes the time between the current and last event — if this difference in time is less than 4 seconds, we mark the event as a rush.  
 All these methodologies did not yield any significant differences in performance, which can be observed in the following plots and metrics for the given models.
