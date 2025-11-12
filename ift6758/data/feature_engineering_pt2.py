@@ -48,7 +48,7 @@ def _computetimesincelastevent(df)-> pd.DataFrame:
     by subtracting previous_event_timeseconds from current_event_timeseconds. 
     Returns: df with time_since_last_event column included
     '''
-    df['time_since_last_event'] =  df['current_event_timeseconds'] - df['previous_event_timeseconds'] 
+    df['time_since_last_event'] =  np.abs(df['current_event_timeseconds'] - df['previous_event_timeseconds']) 
     return df
 
 def _compute_last_event_distance(df)-> pd.DataFrame:
