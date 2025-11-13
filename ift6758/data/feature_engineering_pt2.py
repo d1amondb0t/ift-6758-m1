@@ -152,7 +152,7 @@ def save_dataframe_to_wandb(df,project='IFT6758-2025-B01', name='wpg_v_wsh_20170
     run.log_artifact(artifact)
     
 
-def feature_engineering_two(years):
+def feature_engineering_two(years, download_from_scratch =False):
     '''
     Performs feature engineering on game event data for specified years.
     This function loads event data either from a preprocessed CSV file 
@@ -177,11 +177,11 @@ def feature_engineering_two(years):
         pd.DataFrame: A DataFrame with engineered features for each event.
     '''
     csv_path = "../ift6758/data/allshotgoals2.csv"
-    if (os.path.exists(csv_path)):
+    if (os.path.exists(csv_path)) and not download_from_scratch:
             df = pd.read_csv(csv_path)
     else:
         all_games_events = load_all_games_events(base_path='../ift6758/data/dataStore' , years=years)
-        df = events_to_dataframe2(all_games_events)
+        df = events_to_dataframe2(all_games_events, save_to_csv  = download_from_scratch)
     if len(df) !=0: 
         df = _curenteventtime(df)
         df  = _lasteventtime(df)

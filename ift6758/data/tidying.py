@@ -182,7 +182,7 @@ def events_to_dataframe(all_games_events):
 
     return pd.DataFrame(records)
 
-def  events_to_dataframe2(all_games_events):
+def  events_to_dataframe2(all_games_events, save_to_csv =True):
     '''
     Modifying tidying to include the previous games information into the dataframe as well, will figure out how to get penalties in later 
 
@@ -262,7 +262,8 @@ def  events_to_dataframe2(all_games_events):
 
             records.append(record)
     df = pd.DataFrame(records)
-    df.to_csv("../ift6758/data/allshotgoals2.csv", index=False)
+    if save_to_csv:
+        df.to_csv("../ift6758/data/allshotgoals2.csv", index=False)
     return df
 
 if __name__ == "__main__":

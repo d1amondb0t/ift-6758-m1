@@ -35,7 +35,6 @@ def change_to_one_hot(df, cols, ohe):
         encoded = ohe.fit_transform(df[cols]) #Just doing a fit transform here
     else:
         encoded = ohe.transform(df[cols])
-
     encoded_df = pd.DataFrame(encoded, columns=ohe.get_feature_names_out(cols), index=df.index)
     df_encoded = pd.concat([df.drop(columns=cols), encoded_df], axis=1) 
     return df_encoded, ohe
