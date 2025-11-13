@@ -20,3 +20,4 @@ scipy~=1.16.0
 catboost
 termcolor
 feature-engine
+dotenv
