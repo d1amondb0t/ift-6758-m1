@@ -6,11 +6,6 @@ from ift6758.data.tidying import load_all_games_events, events_to_dataframe
 sys.path.append(os.path.abspath('..'))
 csv_path = "../ift6758/data/all_shots_goals.csv"
 
-# def _calculate_distance_to_net(df) -> pd.DataFrame:
-#   net_x, net_y = 89, 0
-#   df['distance_to_net'] = np.sqrt( (net_x - df['coordinates_x'])**2 + (net_y - df['coordinates_y'])**2)
-#   return df
-
 def _calculate_distance_to_net(df) -> pd.DataFrame:
   net_x, net_y = 89, 0
   net_x2, net_y2 = -89, 0
